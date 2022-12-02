@@ -8,6 +8,8 @@
 
 #include "betterassert.h"
 
+#define BUFFER_SIZE 128
+
 tfs_params tfs_default_params() {
     tfs_params params = {
         .max_inode_count = 64,
@@ -244,6 +246,32 @@ int tfs_unlink(char const *target) {
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     (void)source_path;
     (void)dest_path;
+
+    FILE *f_to_read = fopen(source_path, "r");
+    FILE *f_to_write = fopen(dest_path, "w");
+
+    if (f_to_read == NULL) {
+        return -1;
+    }
+
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
+
+    int bytes_read = -1;
+    int bytes_written = -1;
+
+    while (bytes_read && bytes_written) {
+        bytes_read = fread(buffer, sizeof(char), sizeof(buffer) - 1, f_to_read);
+        printf("%.*s", bytes_read, buffer);
+        // memset(buffer, 0, sizeof(buffer));
+        tfs_write(f_to_write, buffer, sizeof(char));
+    }
+
+    /* close the file */
+    fclose(f_to_read);
+    fclose(f_to_write);
+
+    return 0;
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
