@@ -20,6 +20,7 @@ tfs_params tfs_default_params() {
     return params;
 }
 
+
 int tfs_init(tfs_params const *params_ptr) {
     tfs_params params;
     if (params_ptr != NULL) {
@@ -244,12 +245,12 @@ int tfs_unlink(char const *target) {
 }
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
-    (void)source_path;
-    (void)dest_path;
+    // (void)source_path;
+    // (void)dest_path;
 
     FILE *f_to_read = fopen(source_path, "r");
-    int f_to_write = tfs_open(dest_path, TFS_O_CREAT | TFS_O_TRUNC);
 
+    // Check if the input file was successfully opened
     if (f_to_read == NULL) {
         return -1;
     }
@@ -257,18 +258,60 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
 
-    size_t bytes_read = 1;
-    ssize_t bytes_written = -1;
+    int f_to_write = tfs_open(dest_path, TFS_O_CREAT | TFS_O_TRUNC);
 
-    while (bytes_read && bytes_written) {
-        bytes_read = fread(buffer, sizeof(char), sizeof(buffer) - 1, f_to_read);
-        memset(buffer, 0, sizeof(buffer));
-        bytes_written = tfs_write(f_to_write, buffer, sizeof(char));
+    // Check if the output file was successfully opened
+    if (f_to_write < 0) {
+        fclose(f_to_read);
+        return -1;
     }
 
-    /* close the file */
+    size_t bytes_read;
+
+    // Read data from the input file and store it in the buffer
+    while ((bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 2 , f_to_read)) != 0) {
+        // Write the data from the buffer to the output file using tfs_write()
+        tfs_write(f_to_write, buffer, strlen(buffer));
+        memset(buffer, 0, sizeof(buffer));
+    }
+
+    // Close the input and output files
     fclose(f_to_read);
     tfs_close(f_to_write);
 
     return 0;
 }
+
+// Function to create a hard link
+int tfs_link(char const *target_file, char const *source_file) {
+    // Check if the target and source path names are valid
+    if (!valid_pathname(target_file) || !valid_pathname(source_file)) {
+        return -1;
+    }
+
+    // Get the root directory inode
+    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
+    // Look up the target file
+    int target_inum = tfs_lookup(target_file, root_dir_inode);
+    if (target_inum < 0) {
+        // The target file does not exist
+        return -1;
+    }
+
+    // Get the inode for the target file
+    inode_t *target_inode = inode_get(target_inum);
+
+    // Add an entry in the root directory for the source file that points to the target file
+    if (add_dir_entry(root_dir_inode, source_file + 1, target_inum) < 0) {
+        return -1; // no space in the directory
+    }
+
+    // Increase the reference count of the target file
+    //target_inode -> i_ref_count++;
+
+    return 0;
+}
+
+
+
