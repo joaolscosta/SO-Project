@@ -141,7 +141,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
     // variables. TODO: remove
 
     // Check if the target and source path names are valid
-    if (!valid_pathname(target_file) || !valid_pathname(source_file)) {
+    if (!valid_pathname(target) || !valid_pathname(link_name)) {
         return -1;
     }
 
@@ -149,19 +149,19 @@ int tfs_sym_link(char const *target, char const *link_name) {
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
     // Look up the source file
-    int source_inum = tfs_lookup(source_file, root_dir_inode);
+    int source_inum = tfs_lookup(link_name, root_dir_inode);
     if (source_inum != -1) {
         return -1;
     }
 
     // Get the inode number of the target file
-    int target_inum = tfs_lookup(target_file, root_dir_inode);
+    int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
     // Create a new inode for the source file
-    int source_inode_num = inode_create(T_SYMLINK);
+    int source_inode_num = inode_create(T_FILE);
     if (source_inode_num == -1) {
         return -1;
     }
@@ -176,7 +176,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
     source_inode->i_data_block = target_inum;
 
     // Add an entry in the root directory for the source file
-    if (add_dir_entry(root_dir_inode, source_file + 1, source_inode_num) ==
+    if (add_dir_entry(root_dir_inode, link_name + 1, source_inode_num) ==
         -1) {
         return -1;
     }
@@ -191,7 +191,7 @@ int tfs_link(char const *target, char const *link_name) {
     // variables. TODO: remove
 
     // Check if the target and source path names are valid
-    if (!valid_pathname(target_file) || !valid_pathname(source_file)) {
+    if (!valid_pathname(target) || !valid_pathname(link_name)) {
         return -1;
     }
 
@@ -199,20 +199,20 @@ int tfs_link(char const *target, char const *link_name) {
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
     // Look up the target file
-    int target_inum = tfs_lookup(target_file, root_dir_inode);
+    int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
     // Look up the source file
-    int source_inum = tfs_lookup(source_file, root_dir_inode);
+    int source_inum = tfs_lookup(link_name, root_dir_inode);
     if (source_inum != -1) {
         return -1;
     }
 
     // Add an entry in the root directory for the source file that points to the
     // target file
-    int source_inum = dir_add_entry(root_dir_inode, source_file, target_inum);
+    source_inum = add_dir_entry(root_dir_inode, link_name, target_inum);
     if (source_inum == -1) {
         return -1;
     }
@@ -224,10 +224,10 @@ int tfs_link(char const *target, char const *link_name) {
     }
 
     // Increament the link count of the target file
-    target_file_inode->i_link_count += 1;
+    target_file_inode->i_size++;
 
     // Write the target file inode to disk
-    int res = inode_write(target_file_inode);
+    int res = inode_create(T_FILE);
     if (res < 0) {
         return -1;
     }
@@ -346,19 +346,16 @@ int tfs_unlink(char const *target) {
     }
 
     // Check if the target file is linked to
-    if (target_file_inode->i_link_count > 1) {
+    if (target_file_inode->i_size > 1) {
         // Decrement the link count of the target file
-        target_file_inode->i_link_count -= 1;
+        target_file_inode->i_size--;
     } else {
         // Remove the target file from the file system
-        int res = inode_free(target_inum);
-        if (res < 0) {
-            return -1;
-        }
+        inode_delete(target_inum);
     }
 
     // Remove the target file entry from the root directory
-    int res = dir_remove_entry(root_dir_inode, target);
+    int res = clear_dir_entry(root_dir_inode, target);
     if (res < 0) {
         return -1;
     }
@@ -366,35 +363,6 @@ int tfs_unlink(char const *target) {
     return 0;
 
     // PANIC("TODO: tfs_unlink");
-}
-
-int tfs_rename(char const *oldpath, char const *newpath) {
-    //(void)oldpath;
-    //(void)newpath;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
-
-    // Check if the old and new path names are valid
-    if (!valid_pathname(oldpath) || !valid_pathname(newpath)) {
-        return -1;
-    }
-
-    // Get the root directory inode
-    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
-
-    // Look up the old file
-    int old_inum = tfs_lookup(oldpath, root_dir_inode);
-    if (old_inum == -1) {
-        return -1;
-    }
-
-    // Look up the new file
-    int new_inum = tfs_lookup(newpath, root_dir_inode);
-    if (new_inum
-    // This function removes a link to a file from the file system. If the link
-    // does not exist or the file is still linked to, the function returns -1.
-    // If the file is no longer linked to, the file is removed from the file
-    // system and the function returns 0.
 }
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
@@ -435,5 +403,3 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
 
     return 0;
 }
-
-int tfs_link(char const *target_file, char const *source_file) {
