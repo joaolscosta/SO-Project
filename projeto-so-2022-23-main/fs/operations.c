@@ -93,6 +93,11 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
 
+        if (inode->i_node_type == T_LINK) {
+            int t_inum = inode->target_inum;
+            inode = inode_get(t_inum);
+        }
+
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
             if (inode->i_size > 0) {
@@ -140,44 +145,35 @@ int tfs_sym_link(char const *target, char const *link_name) {
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
-    // Check if the target and source path names are valid
     if (!valid_pathname(target) || !valid_pathname(link_name)) {
         return -1;
     }
 
-    // Get the root directory inode
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
-    // Look up the source file
-    int source_inum = tfs_lookup(link_name, root_dir_inode);
-    if (source_inum != -1) {
+    int link_inum = tfs_lookup(link_name, root_dir_inode);
+    if (link_inum != -1) {
         return -1;
     }
 
-    // Get the inode number of the target file
     int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
-    // Create a new inode for the source file
-    int source_inode_num = inode_create(T_FILE);
-    if (source_inode_num == -1) {
+    int link_inode_inum = inode_create(T_LINK);
+    if (link_inode_inum == -1) {
         return -1;
     }
 
-    // Get the inode of the source file
-    inode_t *source_inode = inode_get(source_inode_num);
-    if (source_inode == NULL) {
+    inode_t *link_inode = inode_get(link_inode_inum);
+    if (link_inode == NULL) {
         return -1;
     }
 
-    // Set the target file inode number as the data block of the source file
-    source_inode->i_data_block = target_inum;
+    link_inode->target_inum = target_inum;
 
-    // Add an entry in the root directory for the source file
-    if (add_dir_entry(root_dir_inode, link_name + 1, source_inode_num) ==
-        -1) {
+    if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
         return -1;
     }
 
@@ -190,51 +186,35 @@ int tfs_link(char const *target, char const *link_name) {
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
-    // Check if the target and source path names are valid
     if (!valid_pathname(target) || !valid_pathname(link_name)) {
         return -1;
     }
 
-    // Get the root directory inode
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
-    // Look up the target file
     int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
-    // Look up the source file
-    int source_inum = tfs_lookup(link_name, root_dir_inode);
-    if (source_inum != -1) {
+    int link_inum = tfs_lookup(link_name, root_dir_inode);
+    if (link_inum != -1) {
         return -1;
     }
 
-    // Add an entry in the root directory for the source file that points to the
-    // target file
-    source_inum = add_dir_entry(root_dir_inode, link_name, target_inum);
+    int source_inum = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
     if (source_inum == -1) {
         return -1;
     }
 
-    // Get the target file inode
     inode_t *target_file_inode = inode_get(target_inum);
     if (target_file_inode == NULL) {
         return -1;
     }
 
-    // Increament the link count of the target file
     target_file_inode->i_size++;
 
-    // Write the target file inode to disk
-    int res = inode_create(T_FILE);
-    if (res < 0) {
-        return -1;
-    }
-
     return 0;
-
-    // PANIC("TODO: tfs_link");
 }
 
 int tfs_close(int fhandle) {
@@ -325,36 +305,28 @@ int tfs_unlink(char const *target) {
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
-    // Check if the target path name is valid
     if (!valid_pathname(target)) {
         return -1;
     }
 
-    // Get the root directory inode
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
-    // Look up the target file
     int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
-    // Get the target file inode
     inode_t *target_file_inode = inode_get(target_inum);
     if (target_file_inode == NULL) {
         return -1;
     }
 
-    // Check if the target file is linked to
     if (target_file_inode->i_size > 1) {
-        // Decrement the link count of the target file
         target_file_inode->i_size--;
     } else {
-        // Remove the target file from the file system
         inode_delete(target_inum);
     }
 
-    // Remove the target file entry from the root directory
     int res = clear_dir_entry(root_dir_inode, target);
     if (res < 0) {
         return -1;
