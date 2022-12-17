@@ -100,7 +100,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
                       "tfs_open: directory files must have an inode");
 
         if (inode->i_node_type == T_LINK) {
-            return tfs_open(inode->target_name, mode);
+            return tfs_open(data_block_get(inode->i_data_block), mode);
         }
 
         // Truncate (if requested)
@@ -176,7 +176,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    memcpy(data_block_get(link_inode->i_data_block), target, MAX_FILE_NAME);
+    strcpy(data_block_get(link_inode->i_data_block), target);
 
     if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
         return -1;

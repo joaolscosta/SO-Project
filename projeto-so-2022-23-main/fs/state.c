@@ -238,8 +238,22 @@ int inode_create(inode_type i_type) {
         inode_table[inumber].i_data_block = -1;
         inode_table[inumber].hard_links = 1;
         break;
-    case T_LINK:
-        // In case of a new file, simply sets its size to 0
+    case T_LINK:; //? não funciona sem isto kkkkk
+        // Initializes directory (filling its block with empty entries, labeled
+        // with inumber==-1)
+        int b = data_block_alloc();
+        if (b == -1) {
+            // ensure fields are initialized
+            inode->i_size = 0;
+            inode->i_data_block = -1;
+
+            // run regular deletion process
+            inode_delete(inumber);
+            return -1;
+        }
+        inode_table[inumber].i_size = BLOCK_SIZE;
+        inode_table[inumber].i_data_block = b;
+        inode_table[inumber].hard_links = 0;
         break;
     default:
         PANIC("inode_create: unknown file type");
