@@ -1,6 +1,7 @@
 #include "operations.h"
 #include "config.h"
 #include "state.h"
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>

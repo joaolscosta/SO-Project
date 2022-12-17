@@ -1,6 +1,7 @@
 #include "state.h"
 #include "betterassert.h"
 
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,12 @@ static allocation_state_t *free_blocks;
  */
 static open_file_entry_t *open_file_table;
 static allocation_state_t *free_open_file_entries;
+
+// Read-write locks
+static pthread_rwlock_t *inode_table_locks;
+static pthread_rwlock_t freeinode_ts_locks;
+static pthread_rwlock_t datablocks_lock;
+static pthread_rwlock_t open_file_table_lock;
 
 // Convenience macros
 #define INODE_TABLE_SIZE (fs_params.max_inode_count)
@@ -100,6 +107,7 @@ int state_init(tfs_params params) {
     }
 
     inode_table = malloc(INODE_TABLE_SIZE * sizeof(inode_t));
+    inode_table_locks = malloc(INODE_TABLE_SIZE * sizeof(pthread_rwlock_t));
     freeinode_ts = malloc(INODE_TABLE_SIZE * sizeof(allocation_state_t));
     fs_data = malloc(DATA_BLOCKS * BLOCK_SIZE);
     free_blocks = malloc(DATA_BLOCKS * sizeof(allocation_state_t));
@@ -114,14 +122,29 @@ int state_init(tfs_params params) {
 
     for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
         freeinode_ts[i] = FREE;
+        if (pthread_rwlock_init(&inode_table_locks[i], NULL) == -1) {
+            return -1;
+        }
+    }
+
+    if (pthread_rwlock_init(&freeinode_ts_locks, NULL) == -1) {
+        return -1; //! Returns javardos uwu :D
     }
 
     for (size_t i = 0; i < DATA_BLOCKS; i++) {
         free_blocks[i] = FREE;
     }
 
+    if (pthread_rwlock_init(&datablocks_lock, NULL) == -1) {
+        return -1;
+    }
+
     for (size_t i = 0; i < MAX_OPEN_FILES; i++) {
         free_open_file_entries[i] = FREE;
+    }
+
+    if (pthread_rwlock_init(&open_file_table_lock, NULL) == -1) {
+        return -1;
     }
 
     return 0;
@@ -139,6 +162,26 @@ int state_destroy(void) {
     free(free_blocks);
     free(open_file_table);
     free(free_open_file_entries);
+
+    if (pthread_rwlock_destroy(&open_file_table_lock) == -1) {
+        return -1;
+    }
+
+    if (pthread_rwlock_destroy(&datablocks_lock) == -1) {
+        return -1;
+    }
+
+    if (pthread_rwlock_destroy(&freeinode_ts_locks) == -1) {
+        return -1;
+    }
+
+    for (size_t i = 0; i < INODE_TABLE_SIZE; i++) {
+        if (pthread_rwlock_destroy(&inode_table_locks[i]) == -1) {
+            return -1;
+        }
+    }
+
+    free(inode_table_locks);
 
     inode_table = NULL;
     freeinode_ts = NULL;
