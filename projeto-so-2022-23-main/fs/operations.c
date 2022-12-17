@@ -10,8 +10,6 @@
 
 #define BUFFER_SIZE 128
 
-char *target_name;
-
 tfs_params tfs_default_params() {
     tfs_params params = {
         .max_inode_count = 64,
@@ -67,6 +65,12 @@ static bool valid_pathname(char const *name) {
  */
 static int tfs_lookup(char const *name, inode_t const *root_inode) {
     // TODO: assert that root_inode is the root directory
+    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
+    if (memcmp(root_inode, root_dir_inode, MAX_FILE_NAME) != 0) {
+        return -1;
+    }
+
     if (!valid_pathname(name)) {
         return -1;
     }
@@ -96,10 +100,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
                       "tfs_open: directory files must have an inode");
 
         if (inode->i_node_type == T_LINK) {
-            memcpy(target_name, data_block_get(inode->i_data_block),
-                   MAX_FILE_NAME);
-            int target_inum = tfs_lookup(target_name, root_dir_inode);
-            inode = inode_get(target_inum);
+            return tfs_open(inode->target_name, mode);
         }
 
         // Truncate (if requested)
@@ -175,7 +176,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    strcpy(data_block_get(link_inode->i_data_block), target);
+    memcpy(data_block_get(link_inode->i_data_block), target, MAX_FILE_NAME);
 
     if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
         return -1;
@@ -206,13 +207,17 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    int check = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
-    if (check == -1) {
+    inode_t *target_file_inode = inode_get(target_inum);
+    if (target_file_inode == NULL) {
         return -1;
     }
 
-    inode_t *target_file_inode = inode_get(target_inum);
-    if (target_file_inode == NULL) {
+    if (target_file_inode->i_node_type == T_LINK) {
+        return -1;
+    }
+
+    int check = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
+    if (check == -1) {
         return -1;
     }
 
@@ -325,21 +330,23 @@ int tfs_unlink(char const *target) {
         return -1;
     }
 
-    if (target_file_inode->i_size > 1) {
-        target_file_inode->i_size--;
-    } else {
-        inode_delete(target_inum);
+    if (target_file_inode->i_node_type != T_LINK) {
+        if (target_file_inode->hard_links > 1) {
+            target_file_inode->hard_links--;
+        } else {
+            inode_delete(target_inum);
+        }
     }
 
-    int res = clear_dir_entry(root_dir_inode, target);
+    int res = clear_dir_entry(root_dir_inode, target + 1);
     if (res < 0) {
         return -1;
     }
 
     return 0;
-
-    // PANIC("TODO: tfs_unlink");
 }
+
+// PANIC("TODO: tfs_unlink");
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     // (void)source_path;
