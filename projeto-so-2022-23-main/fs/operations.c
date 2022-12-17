@@ -10,6 +10,8 @@
 
 #define BUFFER_SIZE 128
 
+char *target_name;
+
 tfs_params tfs_default_params() {
     tfs_params params = {
         .max_inode_count = 64,
@@ -94,8 +96,10 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
                       "tfs_open: directory files must have an inode");
 
         if (inode->i_node_type == T_LINK) {
-            int t_inum = inode->target_inum;
-            inode = inode_get(t_inum);
+            memcpy(target_name, data_block_get(inode->i_data_block),
+                   MAX_FILE_NAME);
+            int target_inum = tfs_lookup(target_name, root_dir_inode);
+            inode = inode_get(target_inum);
         }
 
         // Truncate (if requested)
@@ -171,7 +175,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    link_inode->target_inum = target_inum;
+    strcpy(data_block_get(link_inode->i_data_block), target);
 
     if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
         return -1;
@@ -202,8 +206,8 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    int source_inum = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
-    if (source_inum == -1) {
+    int check = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
+    if (check == -1) {
         return -1;
     }
 
@@ -212,7 +216,7 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    target_file_inode->i_size++;
+    target_file_inode->hard_links++;
 
     return 0;
 }
