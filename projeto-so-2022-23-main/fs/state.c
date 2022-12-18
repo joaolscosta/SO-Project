@@ -238,7 +238,7 @@ int inode_create(inode_type i_type) {
         inode_table[inumber].i_data_block = -1;
         inode_table[inumber].hard_links = 1;
         break;
-    case T_LINK:; //? não funciona sem isto kkkkk
+    case T_LINK:;
         // Initializes directory (filling its block with empty entries, labeled
         // with inumber==-1)
         int b = data_block_alloc();
