@@ -126,7 +126,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         }
 
         // Add entry in the root directory
-        if (add_dir_entry(root_dir_inode, name + 1, inum) == -1) {
+        if (add_dir_entry(ROOT_DIR_INUM, name + 1, inum) == -1) {
             inode_delete(inum);
             return -1; // no space in directory
         }
@@ -179,7 +179,7 @@ int tfs_sym_link(char const *target, char const *link_name) {
 
     strcpy(data_block_get(link_inode->i_data_block), target);
 
-    if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
+    if (add_dir_entry(ROOT_DIR_INUM, link_name + 1, link_inode_inum) == -1) {
         return -1;
     }
 
@@ -217,7 +217,7 @@ int tfs_link(char const *target, char const *link_name) {
         return -1;
     }
 
-    int check = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
+    int check = add_dir_entry(ROOT_DIR_INUM, link_name + 1, target_inum);
     if (check == -1) {
         return -1;
     }
@@ -339,7 +339,7 @@ int tfs_unlink(char const *target) {
         }
     }
 
-    int res = clear_dir_entry(root_dir_inode, target + 1);
+    int res = clear_dir_entry(ROOT_DIR_INUM, target + 1);
     if (res < 0) {
         return -1;
     }
