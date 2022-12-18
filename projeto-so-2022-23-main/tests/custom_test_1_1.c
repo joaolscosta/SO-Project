@@ -4,43 +4,33 @@
 #include <string.h>
 #define BUFFER_LEN 600
 
+char buffer[BUFFER_LEN];
+
 int main() {
 
-    FILE *fd = fopen("custom_input_1.txt", "r");
-
     char *path = "/createdfile";
-    char buffer[BUFFER_LEN];
 
     assert(tfs_init(NULL) != -1);
 
-    int f = tfs_open(path, TFS_O_CREAT);
+    int f = tfs_copy_from_external_fs("tests/custom_input_1.txt", path);
     assert(f != -1);
 
-    memset(buffer, 0, sizeof(buffer));
-    size_t bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 1, fd);
+    f = tfs_open(path, TFS_O_CREAT);
+    assert(f != -1);
 
-    ssize_t written_size;
+    ssize_t read_bytes = tfs_read(f, buffer, BUFFER_LEN);
+    assert(read_bytes != -1);
 
-    while (bytes_read > 0) {
-        /* read the contents of the file */
-        written_size = tfs_write(f, buffer, strlen(buffer));
-        assert(written_size == strlen(buffer));
-
-        memset(buffer, 0, sizeof(buffer));
-
-        bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 1, fd);
+    while (read_bytes > 0) {
+        printf("%s", buffer);
+        memset(buffer, 0, BUFFER_LEN);
+        read_bytes = tfs_read(f, buffer, BUFFER_LEN);
+        assert(read_bytes != -1);
     }
 
     assert(tfs_close(f) != -1);
 
-    f = tfs_open(path, 0);
-    assert(f != -1);
-
-    ssize_t read;
-    while ((read = tfs_read(f, buffer, BUFFER_LEN)) > 0)
-        fwrite(buffer, sizeof(char), (size_t)read, stdout);
-
-    assert(tfs_close(f) != -1);
+    assert(tfs_destroy() != -1);
 
     printf("\nSuccessful test.\n");
 
