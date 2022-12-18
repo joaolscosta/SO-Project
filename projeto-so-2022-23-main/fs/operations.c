@@ -1,5 +1,6 @@
 #include "operations.h"
 #include "config.h"
+#include "locks.h"
 #include "state.h"
 #include <pthread.h>
 #include <stdbool.h>
@@ -126,6 +127,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         }
 
         // Add entry in the root directory
+
         if (add_dir_entry(ROOT_DIR_INUM, name + 1, inum) == -1) {
             inode_delete(inum);
             return -1; // no space in directory
@@ -239,9 +241,15 @@ int tfs_close(int fhandle) {
 }
 
 ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
+
     open_file_entry_t *file = get_open_file_entry(fhandle);
     if (file == NULL) {
         return -1;
+    }
+
+    if (pthread_mutex_lock(&file->lock) != 0) {
+        perror("pthread_mutex_lock");
+        exit(EXIT_FAILURE);
     }
 
     //  From the open file table entry, we get the inode
@@ -259,6 +267,10 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             // If empty file, allocate new block
             int bnum = data_block_alloc();
             if (bnum == -1) {
+                if (pthread_mutex_unlock(&file->lock) != 0) {
+                    perror("pthread_mutex_unlock");
+                    exit(EXIT_FAILURE);
+                }
                 return -1; // no space
             }
 
@@ -278,13 +290,23 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
         }
     }
 
+    if (pthread_mutex_unlock(&file->lock) != 0) {
+        perror("pthread_mutex_unlock");
+        exit(EXIT_FAILURE);
+    }
     return (ssize_t)to_write;
 }
 
 ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
+
     open_file_entry_t *file = get_open_file_entry(fhandle);
     if (file == NULL) {
         return -1;
+    }
+
+    if (pthread_mutex_lock(&file->lock) != 0) {
+        perror("pthread_mutex_lock");
+        exit(EXIT_FAILURE);
     }
 
     // From the open file table entry, we get the inode
@@ -305,6 +327,11 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         memcpy(buffer, block + file->of_offset, to_read);
         // The offset associated with the file handle is incremented accordingly
         file->of_offset += to_read;
+    }
+
+    if (pthread_mutex_unlock(&file->lock) != 0) {
+        perror("pthread_mutex_unlock");
+        exit(EXIT_FAILURE);
     }
 
     return (ssize_t)to_read;

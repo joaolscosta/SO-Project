@@ -19,7 +19,7 @@ int main() {
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 1, fd);
 
-    int written_size;
+    ssize_t written_size;
 
     while (bytes_read > 0) {
         /* read the contents of the file */
