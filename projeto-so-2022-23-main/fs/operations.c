@@ -20,7 +20,6 @@ tfs_params tfs_default_params() {
     return params;
 }
 
-
 int tfs_init(tfs_params const *params_ptr) {
     tfs_params params;
     if (params_ptr != NULL) {
@@ -66,6 +65,12 @@ static bool valid_pathname(char const *name) {
  */
 static int tfs_lookup(char const *name, inode_t const *root_inode) {
     // TODO: assert that root_inode is the root directory
+    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
+    if (memcmp(root_inode, root_dir_inode, MAX_FILE_NAME) != 0) {
+        return -1;
+    }
+
     if (!valid_pathname(name)) {
         return -1;
     }
@@ -93,6 +98,10 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
                       "tfs_open: directory files must have an inode");
+
+        if (inode->i_node_type == T_LINK) {
+            return tfs_open(data_block_get(inode->i_data_block), mode);
+        }
 
         // Truncate (if requested)
         if (mode & TFS_O_TRUNC) {
@@ -136,21 +145,85 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
 }
 
 int tfs_sym_link(char const *target, char const *link_name) {
-    (void)target;
-    (void)link_name;
+    //(void)target;
+    //(void)link_name;
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
-    PANIC("TODO: tfs_sym_link");
+    if (!valid_pathname(target) || !valid_pathname(link_name)) {
+        return -1;
+    }
+
+    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
+    int link_inum = tfs_lookup(link_name, root_dir_inode);
+    if (link_inum != -1) {
+        return -1;
+    }
+
+    int target_inum = tfs_lookup(target, root_dir_inode);
+    if (target_inum == -1) {
+        return -1;
+    }
+
+    int link_inode_inum = inode_create(T_LINK);
+    if (link_inode_inum == -1) {
+        return -1;
+    }
+
+    inode_t *link_inode = inode_get(link_inode_inum);
+    if (link_inode == NULL) {
+        return -1;
+    }
+
+    strcpy(data_block_get(link_inode->i_data_block), target);
+
+    if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
+        return -1;
+    }
+
+    return 0;
 }
 
 int tfs_link(char const *target, char const *link_name) {
-    (void)target;
-    (void)link_name;
+    //(void)target;
+    //(void)link_name;
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
-    PANIC("TODO: tfs_link");
+    if (!valid_pathname(target) || !valid_pathname(link_name)) {
+        return -1;
+    }
+
+    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
+    int target_inum = tfs_lookup(target, root_dir_inode);
+    if (target_inum == -1) {
+        return -1;
+    }
+
+    int link_inum = tfs_lookup(link_name, root_dir_inode);
+    if (link_inum != -1) {
+        return -1;
+    }
+
+    inode_t *target_file_inode = inode_get(target_inum);
+    if (target_file_inode == NULL) {
+        return -1;
+    }
+
+    if (target_file_inode->i_node_type == T_LINK) {
+        return -1;
+    }
+
+    int check = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
+    if (check == -1) {
+        return -1;
+    }
+
+    target_file_inode->hard_links++;
+
+    return 0;
 }
 
 int tfs_close(int fhandle) {
@@ -237,12 +310,43 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
 }
 
 int tfs_unlink(char const *target) {
-    (void)target;
+    //(void)target;
     // ^ this is a trick to keep the compiler from complaining about unused
     // variables. TODO: remove
 
-    PANIC("TODO: tfs_unlink");
+    if (!valid_pathname(target)) {
+        return -1;
+    }
+
+    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
+
+    int target_inum = tfs_lookup(target, root_dir_inode);
+    if (target_inum == -1) {
+        return -1;
+    }
+
+    inode_t *target_file_inode = inode_get(target_inum);
+    if (target_file_inode == NULL) {
+        return -1;
+    }
+
+    if (target_file_inode->i_node_type != T_LINK) {
+        if (target_file_inode->hard_links > 1) {
+            target_file_inode->hard_links--;
+        } else {
+            inode_delete(target_inum);
+        }
+    }
+
+    int res = clear_dir_entry(root_dir_inode, target + 1);
+    if (res < 0) {
+        return -1;
+    }
+
+    return 0;
 }
+
+// PANIC("TODO: tfs_unlink");
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     // (void)source_path;
@@ -269,7 +373,8 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     size_t bytes_read;
 
     // Read data from the input file and store it in the buffer
-    while ((bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 2 , f_to_read)) != 0) {
+    while ((bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 1,
+                               f_to_read)) != 0) {
         // Write the data from the buffer to the output file using tfs_write()
         tfs_write(f_to_write, buffer, strlen(buffer));
         memset(buffer, 0, sizeof(buffer));
@@ -281,37 +386,3 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
 
     return 0;
 }
-
-// Function to create a hard link
-int tfs_link(char const *target_file, char const *source_file) {
-    // Check if the target and source path names are valid
-    if (!valid_pathname(target_file) || !valid_pathname(source_file)) {
-        return -1;
-    }
-
-    // Get the root directory inode
-    inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
-
-    // Look up the target file
-    int target_inum = tfs_lookup(target_file, root_dir_inode);
-    if (target_inum < 0) {
-        // The target file does not exist
-        return -1;
-    }
-
-    // Get the inode for the target file
-    inode_t *target_inode = inode_get(target_inum);
-
-    // Add an entry in the root directory for the source file that points to the target file
-    if (add_dir_entry(root_dir_inode, source_file + 1, target_inum) < 0) {
-        return -1; // no space in the directory
-    }
-
-    // Increase the reference count of the target file
-    //target_inode -> i_ref_count++;
-
-    return 0;
-}
-
-
-

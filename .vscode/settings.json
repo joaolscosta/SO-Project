@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "state.h": "c",
+        "operations.h": "c",
+        "config.h": "c",
+        "unistd.h": "c"
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "string.h": "c",
+        "stdint.h": "c",
+        "operations.h": "c",
+        "unistd.h": "c",
+        "assert.h": "c",
+        "cstdint": "c",
+        "betterassert.h": "c",
+        "stdbool.h": "c"
+    }
+}
