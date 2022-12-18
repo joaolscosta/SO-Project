@@ -79,7 +79,7 @@ static int tfs_lookup(char const *name, inode_t const *root_inode) {
     // skip the initial '/' character
     name++;
 
-    return find_in_dir(root_inode, name);
+    return find_in_dir(ROOT_DIR_INUM, name);
 }
 
 int tfs_open(char const *name, tfs_file_mode_t mode) {
