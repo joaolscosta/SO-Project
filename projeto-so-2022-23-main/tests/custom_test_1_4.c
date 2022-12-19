@@ -38,7 +38,7 @@ int main() {
 void *read_fn(void *input) {
     (void)input; // ignore parameter
 
-    int f = tfs_open(TFS_FILE, 0);
+    int f = tfs_open(TFS_FILE, TFS_O_CREAT);
     assert(f != -1);
 
     char buffer[BUFFER_LEN];

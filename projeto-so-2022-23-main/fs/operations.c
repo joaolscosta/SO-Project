@@ -12,6 +12,8 @@
 
 #define BUFFER_SIZE 128
 
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 tfs_params tfs_default_params() {
     tfs_params params = {
         .max_inode_count = 64,
@@ -34,6 +36,11 @@ int tfs_init(tfs_params const *params_ptr) {
         return -1;
     }
 
+    if (pthread_mutex_init(&mutex, NULL) != 0) {
+        perror("pthread_mutex_init");
+        exit(EXIT_FAILURE);
+    }
+
     // create root inode
     int root = inode_create(T_DIRECTORY);
     if (root != ROOT_DIR_INUM) {
@@ -44,6 +51,12 @@ int tfs_init(tfs_params const *params_ptr) {
 }
 
 int tfs_destroy() {
+
+    if (pthread_mutex_destroy(&mutex) != 0) {
+        perror("pthread_mutex_init");
+        exit(EXIT_FAILURE);
+    }
+
     if (state_destroy() != 0) {
         return -1;
     }
@@ -92,10 +105,14 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
+
+    mutex_lock(&mutex);
+
     int inum = tfs_lookup(name, root_dir_inode);
     size_t offset;
 
     if (inum >= 0) {
+        mutex_unlock(&mutex);
         // The file already exists
         inode_t *inode = inode_get(inum);
         ALWAYS_ASSERT(inode != NULL,
@@ -123,18 +140,22 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
         // Create inode
         inum = inode_create(T_FILE);
         if (inum == -1) {
+            mutex_unlock(&mutex);
             return -1; // no space in inode table
         }
 
         // Add entry in the root directory
 
         if (add_dir_entry(root_dir_inode, name + 1, inum) == -1) {
+            mutex_unlock(&mutex);
             inode_delete(inum);
             return -1; // no space in directory
         }
 
+        mutex_unlock(&mutex);
         offset = 0;
     } else {
+        mutex_unlock(&mutex);
         return -1;
     }
 

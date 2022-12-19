@@ -337,18 +337,16 @@ void inode_delete(int inumber) {
 
     rw_unlock(&freeinode_ts_locks);
 
-    rw_read_lock(&inode_table_locks[inumber]);
-    if (inode_table[inumber].i_size > 0) {
+    rw_write_lock(&freeinode_ts_locks);
+    rw_write_lock(&inode_table_locks[inumber]);
 
-        rw_unlock(&inode_table_locks[inumber]);
-        rw_write_lock(&inode_table_locks[inumber]);
+    if (inode_table[inumber].i_size > 0) {
 
         data_block_free(inode_table[inumber].i_data_block);
     }
-    rw_unlock(&inode_table_locks[inumber]);
-
-    rw_write_lock(&freeinode_ts_locks);
     freeinode_ts[inumber] = FREE;
+
+    rw_unlock(&inode_table_locks[inumber]);
     rw_unlock(&freeinode_ts_locks);
 }
 
@@ -449,9 +447,6 @@ int add_dir_entry(inode_t *inode, char const *sub_name, int sub_inumber) {
     for (size_t i = 0; i < MAX_DIR_ENTRIES; i++) {
 
         if (dir_entry[i].d_inumber == -1) {
-
-            rw_unlock(&datablocks_lock);
-            rw_write_lock(&datablocks_lock);
 
             dir_entry[i].d_inumber = sub_inumber;
             strncpy(dir_entry[i].d_name, sub_name, MAX_FILE_NAME - 1);
