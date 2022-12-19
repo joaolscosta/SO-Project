@@ -21,7 +21,7 @@ int main() {
 
     for (int i = 0; i < THREAD_NUM; i++) {
         printf("Creating thread %d...\n", i);
-        assert(pthread_create(&tid[i], NULL, read_fn(i), NULL) == 0);
+        assert(pthread_create(&tid[i], NULL, read_fn, NULL) == 0);
     }
 
     for (int i = 0; i < THREAD_NUM; i++) {
@@ -36,7 +36,7 @@ int main() {
 }
 
 void *read_fn(void *input) {
-    int i = (int)input;
+    (void)input; // ignore parameter
 
     int f = tfs_open(TFS_FILE, 0);
     assert(f != -1);
@@ -47,13 +47,11 @@ void *read_fn(void *input) {
 
     ssize_t total_read = 0;
     while (bytes_read > 0) {
-        printf("%d", i);
+        printf("%s", buffer);
         total_read += bytes_read;
         memset(buffer, 0, BUFFER_LEN);
         bytes_read = tfs_read(f, buffer, BUFFER_LEN);
     }
-
-    puts("heyo");
 
     // check if both files reached the end
     assert(bytes_read == 0);
