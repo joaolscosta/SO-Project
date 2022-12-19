@@ -309,6 +309,8 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         exit(EXIT_FAILURE);
     }
 
+    rw_read_lock(&open_file_table_lock);
+    
     // From the open file table entry, we get the inode
     inode_t const *inode = inode_get(file->of_inumber);
     ALWAYS_ASSERT(inode != NULL, "tfs_read: inode of open file deleted");
@@ -334,6 +336,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         exit(EXIT_FAILURE);
     }
 
+    rw_unlock(&open_file_table_lock);
     return (ssize_t)to_read;
 }
 

@@ -19,6 +19,8 @@ typedef struct {
 
 typedef enum { T_FILE, T_DIRECTORY, T_LINK } inode_type;
 
+static pthread_rwlock_t open_file_table_lock;
+
 /**
  * Inode
  */
@@ -74,5 +76,9 @@ void rw_read_lock(pthread_rwlock_t *lock);
 void rw_write_lock(pthread_rwlock_t *lock);
 
 void rw_unlock(pthread_rwlock_t *lock);
+
+void file_table_lock();
+
+void file_table_unlock();
 
 #endif // STATE_H
