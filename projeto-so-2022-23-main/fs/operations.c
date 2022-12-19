@@ -12,6 +12,7 @@
 
 #define BUFFER_SIZE 128
 
+// mutex to protect the opened files table
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 tfs_params tfs_default_params() {
@@ -106,6 +107,7 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
     ALWAYS_ASSERT(root_dir_inode != NULL,
                   "tfs_open: root dir inode must exist");
 
+    // Locks the opened files table
     mutex_lock(&mutex);
 
     int inum = tfs_lookup(name, root_dir_inode);
@@ -152,9 +154,12 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
             return -1; // no space in directory
         }
 
+        // Unlocks the opened files table
         mutex_unlock(&mutex);
         offset = 0;
     } else {
+
+        //
         mutex_unlock(&mutex);
         return -1;
     }
@@ -169,39 +174,43 @@ int tfs_open(char const *name, tfs_file_mode_t mode) {
 }
 
 int tfs_sym_link(char const *target, char const *link_name) {
-    //(void)target;
-    //(void)link_name;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
 
+    // Checks if the path names are valid
     if (!valid_pathname(target) || !valid_pathname(link_name)) {
         return -1;
     }
 
+    // get's the root directory inode
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
+    // gets the inumber for the new link
     int link_inum = tfs_lookup(link_name, root_dir_inode);
     if (link_inum != -1) {
         return -1;
     }
 
+    // gets the inumber for the target file
     int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
+    // Creates a new inode with type T_LINK (Symbolic Link)
     int link_inode_inum = inode_create(T_LINK);
     if (link_inode_inum == -1) {
         return -1;
     }
 
+    // gets the inode for the new link
     inode_t *link_inode = inode_get(link_inode_inum);
     if (link_inode == NULL) {
         return -1;
     }
 
+    // copies the target file path into the link's data block
     strcpy(data_block_get(link_inode->i_data_block), target);
 
+    // adds the link to the directory
     if (add_dir_entry(root_dir_inode, link_name + 1, link_inode_inum) == -1) {
         return -1;
     }
@@ -210,41 +219,45 @@ int tfs_sym_link(char const *target, char const *link_name) {
 }
 
 int tfs_link(char const *target, char const *link_name) {
-    //(void)target;
-    //(void)link_name;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
 
+    // Checks if the pathnames are valid
     if (!valid_pathname(target) || !valid_pathname(link_name)) {
         return -1;
     }
 
+    // get's the root directory inode
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
+    // gets the inumber for the new link
     int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
+    // gets the inumber for the target file
     int link_inum = tfs_lookup(link_name, root_dir_inode);
     if (link_inum != -1) {
         return -1;
     }
 
+    // Gets the inode for the target file
     inode_t *target_file_inode = inode_get(target_inum);
     if (target_file_inode == NULL) {
         return -1;
     }
 
+    // Does not allow HardLinks to be created for symbolic links
     if (target_file_inode->i_node_type == T_LINK) {
         return -1;
     }
 
+    // Adds the link to the directory
     int check = add_dir_entry(root_dir_inode, link_name + 1, target_inum);
     if (check == -1) {
         return -1;
     }
 
+    // Increments the number of hard links for the target file
     target_file_inode->hard_links++;
 
     return 0;
@@ -369,34 +382,39 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
 }
 
 int tfs_unlink(char const *target) {
-    //(void)target;
-    // ^ this is a trick to keep the compiler from complaining about unused
-    // variables. TODO: remove
 
+    // Checks if the given path is a valid pathname
     if (!valid_pathname(target)) {
         return -1;
     }
 
+    // Gets the root directory inode
     inode_t *root_dir_inode = inode_get(ROOT_DIR_INUM);
 
+    // Gets the inumber of the target file
     int target_inum = tfs_lookup(target, root_dir_inode);
     if (target_inum == -1) {
         return -1;
     }
 
+    // Gets the inode for the target file
     inode_t *target_file_inode = inode_get(target_inum);
     if (target_file_inode == NULL) {
         return -1;
     }
 
+    // Checks if the target inode is of a Symbolic link
     if (target_file_inode->i_node_type != T_LINK) {
+
+        // If it is a hard link, decrement the hard link count
         if (target_file_inode->hard_links > 1) {
             target_file_inode->hard_links--;
-        } else {
+        } else { // If the hard link count is 1, delete the file
             inode_delete(target_inum);
         }
     }
 
+    // Deletes target file from the given directory
     int res = clear_dir_entry(root_dir_inode, target + 1);
     if (res < 0) {
         return -1;
@@ -404,8 +422,6 @@ int tfs_unlink(char const *target) {
 
     return 0;
 }
-
-// PANIC("TODO: tfs_unlink");
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     // (void)source_path;
