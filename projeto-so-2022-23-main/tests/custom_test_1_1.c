@@ -22,7 +22,7 @@ int main() {
     assert(read_bytes != -1);
 
     while (read_bytes > 0) {
-        printf("%s", buffer);
+        // printf("%s", buffer);
         memset(buffer, 0, BUFFER_LEN);
         read_bytes = tfs_read(f, buffer, BUFFER_LEN);
         assert(read_bytes != -1);

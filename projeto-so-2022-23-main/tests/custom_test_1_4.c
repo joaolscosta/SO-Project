@@ -20,12 +20,12 @@ int main() {
     tfs_copy_from_external_fs(INPUT_FILE, TFS_FILE);
 
     for (int i = 0; i < THREAD_NUM; i++) {
-        printf("Creating thread %d...\n", i);
+        // printf("Creating thread %d...\n", i);
         assert(pthread_create(&tid[i], NULL, read_fn, NULL) == 0);
     }
 
     for (int i = 0; i < THREAD_NUM; i++) {
-        printf("Joining thread %d...\n", i);
+        // printf("Joining thread %d...\n", i);
         assert(pthread_join(tid[i], NULL) == 0);
     }
 
