@@ -28,8 +28,8 @@ typedef struct {
 
     size_t i_size;
     int i_data_block;
-    int hard_links;
 
+    int hard_links;
     int inumber;
 
     // in a more complete FS, more fields could exist here

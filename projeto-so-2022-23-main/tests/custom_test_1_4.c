@@ -10,7 +10,10 @@
 #define INPUT_FILE "./custom_input_1.txt"
 #define TFS_FILE "/testing1"
 
-void *read_fn(void *ignore);
+void *readfile(void *ignore);
+
+// This test creates a file in the tfs and then tries to read it from multiple
+// threads
 
 int main() {
     assert(tfs_init(NULL) != -1);
@@ -21,7 +24,7 @@ int main() {
 
     for (int i = 0; i < THREAD_NUM; i++) {
         // printf("Creating thread %d...\n", i);
-        assert(pthread_create(&tid[i], NULL, read_fn, NULL) == 0);
+        assert(pthread_create(&tid[i], NULL, readfile, NULL) == 0);
     }
 
     for (int i = 0; i < THREAD_NUM; i++) {
@@ -35,7 +38,7 @@ int main() {
     return 0;
 }
 
-void *read_fn(void *input) {
+void *readfile(void *input) {
     (void)input; // ignore parameter
 
     int f = tfs_open(TFS_FILE, TFS_O_CREAT);
@@ -47,7 +50,6 @@ void *read_fn(void *input) {
 
     ssize_t total_read = 0;
     while (bytes_read > 0) {
-        printf("%s", buffer);
         total_read += bytes_read;
         memset(buffer, 0, BUFFER_LEN);
         bytes_read = tfs_read(f, buffer, BUFFER_LEN);

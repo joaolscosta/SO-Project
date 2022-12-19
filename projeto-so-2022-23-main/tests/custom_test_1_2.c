@@ -4,6 +4,9 @@
 #include <string.h>
 #define BUFFER_LEN 600
 
+// This test creates a file, and tests some possible errors related to linking a
+// file
+
 int main() {
 
     assert(tfs_init(NULL) != -1);
