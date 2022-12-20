@@ -449,7 +449,7 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     size_t bytes_read;
 
     // Read data from the input file and store it in the buffer
-    while ((bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 2,
+    while ((bytes_read = fread(buffer, sizeof(char), strlen(buffer) + 1,
                                f_to_read)) != 0) {
         // Write the data from the buffer to the output file using tfs_write()
         tfs_write(f_to_write, buffer, strlen(buffer));
