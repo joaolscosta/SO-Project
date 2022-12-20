@@ -325,6 +325,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
         // The offset associated with the file handle is incremented accordingly
         file->of_offset += to_write;
         if (file->of_offset > inode->i_size) {
+    // Gets the inode for the target file
             inode->i_size = file->of_offset;
         }
     }
