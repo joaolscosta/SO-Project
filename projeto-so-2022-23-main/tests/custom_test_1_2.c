@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #define BUFFER_LEN 600
-#define PHONE_NUMBER 932521502
+
+// This test creates a file, and tests some possible errors related to linking a
+// file
 
 int main() {
 
@@ -55,6 +57,8 @@ int main() {
     assert(tfs_open("/h2", 0) != -1);
 
     assert(tfs_destroy() != -1);
+
+    printf("Successful test.\n");
 
     return 0;
 }

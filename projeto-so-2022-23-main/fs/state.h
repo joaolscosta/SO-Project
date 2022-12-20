@@ -28,7 +28,9 @@ typedef struct {
 
     size_t i_size;
     int i_data_block;
+
     int hard_links;
+    int inumber;
 
     // in a more complete FS, more fields could exist here
 } inode_t;
@@ -41,6 +43,7 @@ typedef enum { FREE = 0, TAKEN = 1 } allocation_state_t;
 typedef struct {
     int of_inumber;
     size_t of_offset;
+    pthread_mutex_t lock;
 } open_file_entry_t;
 
 int state_init(tfs_params);
@@ -63,5 +66,23 @@ void *data_block_get(int block_number);
 int add_to_open_file_table(int inumber, size_t offset);
 void remove_from_open_file_table(int fhandle);
 open_file_entry_t *get_open_file_entry(int fhandle);
+
+void rw_init(pthread_rwlock_t *lock, pthread_rwlockattr_t *attr);
+
+void rw_destroy(pthread_rwlock_t *lock);
+
+void rw_read_lock(pthread_rwlock_t *lock);
+
+void rw_write_lock(pthread_rwlock_t *lock);
+
+void rw_unlock(pthread_rwlock_t *lock);
+
+void inode_lock(int index, int rw);
+
+void inode_unlock(int index);
+
+void mutex_unlock(pthread_mutex_t *lock);
+
+void mutex_lock(pthread_mutex_t *lock);
 
 #endif // STATE_H
