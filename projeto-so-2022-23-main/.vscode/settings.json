@@ -8,6 +8,7 @@
         "assert.h": "c",
         "cstdint": "c",
         "betterassert.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "logging.h": "c"
     }
 }
