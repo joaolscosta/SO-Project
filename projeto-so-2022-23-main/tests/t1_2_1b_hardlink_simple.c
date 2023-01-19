@@ -74,6 +74,8 @@ int main() {
     assert(tfs_link(target_path2, link_path2) != -1);
     assert_contents_ok(link_path2);
 
+    blocks_taken();
+
     assert(tfs_destroy() != -1);
 
     printf("Successful test.\n");

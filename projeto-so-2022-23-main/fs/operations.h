@@ -137,4 +137,8 @@ int tfs_unlink(char const *target);
  */
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path);
 
+void how_many_files_open();
+void how_many_blocks_taken();
+void blocks_taken();
+
 #endif // OPERATIONS_H

@@ -262,6 +262,11 @@ int tfs_link(char const *target, char const *link_name) {
     return 0;
 }
 
+int tfs_rename(char const path, char const new_path) {
+    tfs_link(path, new_path);
+    tfs_unlink(path);
+}
+
 int tfs_close(int fhandle) {
     open_file_entry_t *file = get_open_file_entry(fhandle);
     if (file == NULL) {
@@ -295,7 +300,8 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
 
     // Determine how many bytes to write
     size_t block_size = state_block_size();
-    if (to_write + file->of_offset > block_size) {
+    if (to_write + file->of_offset >
+        block_size) { // escreve só o máximo permitido
         to_write = block_size - file->of_offset;
     }
 
@@ -460,4 +466,16 @@ int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
     tfs_close(f_to_write);
 
     return 0;
+}
+
+void how_many_files_open() {
+    fprintf(stdout, "number of files = %d\n", n_files_open);
+}
+
+void how_many_blocks_taken() {
+    fprintf(stdout, "number of blocks taken = %d\n", n_blocks_taken);
+}
+
+void blocks_taken() {
+    fprintf(stdout, "number of blocks taken = %d\n", blocks_taken_taken());
 }

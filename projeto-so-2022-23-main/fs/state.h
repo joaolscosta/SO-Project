@@ -59,9 +59,13 @@ int clear_dir_entry(inode_t *inode, char const *sub_name);
 int add_dir_entry(inode_t *inode, char const *sub_name, int sub_inumber);
 int find_in_dir(inode_t const *inode, char const *sub_name);
 
+static int n_blocks_taken;
+
 int data_block_alloc(void);
 void data_block_free(int block_number);
 void *data_block_get(int block_number);
+
+static int n_files_open = 0;
 
 int add_to_open_file_table(int inumber, size_t offset);
 void remove_from_open_file_table(int fhandle);
@@ -84,5 +88,7 @@ void inode_unlock(int index);
 void mutex_unlock(pthread_mutex_t *lock);
 
 void mutex_lock(pthread_mutex_t *lock);
+
+int blocks_taken_taken();
 
 #endif // STATE_H

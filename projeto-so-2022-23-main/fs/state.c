@@ -101,6 +101,7 @@ static void insert_delay(void) {
  *   - malloc failure when allocating TFS structures.
  */
 int state_init(tfs_params params) {
+    n_blocks_taken = 0;
     fs_params = params;
 
     if (inode_table != NULL) {
@@ -515,6 +516,7 @@ int find_in_dir(inode_t const *inode, char const *sub_name) {
  * Possible errors:
  *   - No free data blocks.
  */
+
 int data_block_alloc(void) {
 
     rw_read_lock(&datablocks_lock);
@@ -528,6 +530,7 @@ int data_block_alloc(void) {
             rw_write_lock(&datablocks_lock);
 
             free_blocks[i] = TAKEN;
+            n_blocks_taken++;
 
             rw_unlock(&datablocks_lock);
 
@@ -550,6 +553,7 @@ void data_block_free(int block_number) {
 
     insert_delay(); // simulate storage access delay to free_blocks
     free_blocks[block_number] = FREE;
+    n_blocks_taken--;
 }
 
 /**
@@ -580,6 +584,7 @@ void *data_block_get(int block_number) {
  * Possible errors:
  *   - No space in open file table for a new open file.
  */
+
 int add_to_open_file_table(int inumber, size_t offset) {
 
     rw_read_lock(&free_open_file_entries_lock);
@@ -593,6 +598,7 @@ int add_to_open_file_table(int inumber, size_t offset) {
             free_open_file_entries[i] = TAKEN;
             open_file_table[i].of_inumber = inumber;
             open_file_table[i].of_offset = offset;
+            n_files_open++;
 
             if (pthread_mutex_init(&get_open_file_entry(i)->lock, NULL) != 0) {
                 perror("pthread_mutex_init");
@@ -632,6 +638,7 @@ void remove_from_open_file_table(int fhandle) {
     }
 
     free_open_file_entries[fhandle] = FREE;
+    n_files_open--;
 
     rw_unlock(&free_open_file_entries_lock);
 }
@@ -726,4 +733,14 @@ void mutex_unlock(pthread_mutex_t *lock) {
         perror("pthread_mutex_unlock");
         exit(EXIT_FAILURE);
     }
+}
+
+int blocks_taken_taken() {
+    int taken = 0;
+    for (size_t i = 0; i < DATA_BLOCKS; i++) {
+        if (free_blocks[i] == TAKEN) {
+            taken++;
+        }
+    }
+    return taken;
 }
