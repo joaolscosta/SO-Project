@@ -262,9 +262,10 @@ int tfs_link(char const *target, char const *link_name) {
     return 0;
 }
 
-int tfs_rename(char const path, char const new_path) {
+int tfs_rename(char const *path, char const *new_path) {
     tfs_link(path, new_path);
     tfs_unlink(path);
+    return 0;
 }
 
 int tfs_close(int fhandle) {
@@ -478,4 +479,57 @@ void how_many_blocks_taken() {
 
 void blocks_taken() {
     fprintf(stdout, "number of blocks taken = %d\n", blocks_taken_taken());
+}
+
+int tfs_size(char const *path) {
+    int inum = tfs_lookup(path, inode_get(ROOT_DIR_INUM));
+    if (inum < 0) {
+        return -1;
+    }
+
+    inode_t *inode = inode_get(inum);
+
+    printf("%ld", inode->i_size);
+
+    return 0;
+}
+
+int tfs_copy(char const *source_path, char const *dest_path) {
+    // (void)source_path;
+    // (void)dest_path;
+
+    int f_to_read = tfs_open(source_path, 0);
+
+    // Check if the input file was successfully opened
+    if (f_to_read < 0) {
+        fclose(f_to_read);
+        return -1;
+    }
+
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
+
+    int f_to_write = tfs_open(dest_path, TFS_O_CREAT | TFS_O_TRUNC);
+
+    // Check if the output file was successfully opened
+    if (f_to_write < 0) {
+        fclose(f_to_read);
+        return -1;
+    }
+
+    size_t bytes_read;
+
+    // Read data from the input file and store it in the buffer
+    while ((bytes_read = tfs_read(f_to_read, buffer, strlen(buffer) + 1)) !=
+           0) {
+        // Write the data from the buffer to the output file using tfs_write()
+        tfs_write(f_to_write, buffer, strlen(buffer));
+        memset(buffer, 0, sizeof(buffer));
+    }
+
+    // Close the input and output files
+    tfs_close(f_to_read);
+    tfs_close(f_to_write);
+
+    return 0;
 }
