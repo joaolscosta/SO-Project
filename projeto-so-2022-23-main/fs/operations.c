@@ -64,6 +64,13 @@ int tfs_destroy() {
 }
 
 static bool valid_pathname(char const *name) {
+
+    for (int i = 0; i < strlen(name); i++) {
+        if (name[i] == toupper(name[i])) {
+            return false;
+        }
+    }
+
     return name != NULL && strlen(name) > 1 && name[0] == '/';
 }
 
@@ -262,9 +269,15 @@ int tfs_link(char const *target, char const *link_name) {
     return 0;
 }
 
-int tfs_rename(char const path, char const new_path) {
+void tfs_rename(char const *path, char const *new_path) {
     tfs_link(path, new_path);
     tfs_unlink(path);
+}
+
+int tfs_size(char const *path) {
+    int inum = tfs_lookup(path, inode_get(ROOT_DIR_INUM));
+    inode_t *inode = inode_get(inum);
+    return inode->i_size;
 }
 
 int tfs_close(int fhandle) {
@@ -427,6 +440,23 @@ int tfs_unlink(char const *target) {
     }
 
     return 0;
+}
+
+int tfs_copy(char const *path, char const *newpath) {
+    int file_to_read = tfs_open(path, 0);
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
+    int file_to_copy = tfs_open(newpath, TFS_O_CREAT | TFS_O_APPEND);
+    size_t bytes_read;
+
+    while ((bytes_read = tfs_read(file_to_read, buffer, strlen(buffer)))) {
+
+        tfs_write(file_to_copy, buffer, strlen(buffer));
+        memset(buffer, 0, sizeof(buffer));
+    }
+
+    tfs_close(file_to_read);
+    tfs_close(file_to_copy);
 }
 
 int tfs_copy_from_external_fs(char const *source_path, char const *dest_path) {
